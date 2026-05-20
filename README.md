@@ -1,4 +1,4 @@
-**Project Overview**
+**Project Overview** 
 
 This project presents an industry-oriented hybrid stock price prediction system that combines Deep Learning, Financial Sentiment Analysis, and Technical Indicators for forecasting future stock prices and market trends.
 
@@ -15,23 +15,16 @@ The objective of the project is to improve stock price prediction accuracy by in
 
 **Project Structure — Hybrid Stock Price Prediction**
 
-Yahoo Finance API
-        ↓
-Historical Stock Data
-        ↓
-Data Preprocessing
-        ↓
-Technical Indicators
-(RSI, MACD, VWAP)
-        ↓
-FinBERT Sentiment Analysis
-        ↓
-LSTM Deep Learning Model
-        ↓
-Prediction Output
-        ↓
-Streamlit Dashboard/
-
+Hybrid-Stock-Price-Prediction/
+│
+├── Yahoo Finance API
+├── Historical Stock Data
+├── Data Preprocessing
+├── Technical Indicators (RSI, MACD, VWAP)
+├── FinBERT Sentiment Analysis
+├── LSTM Deep Learning Model
+├── Prediction Output
+└── images/
 
 
 
