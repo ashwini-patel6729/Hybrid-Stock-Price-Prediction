@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HybridAlpha · NSE Stock Prediction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0a0c0f;
+  --bg2: #0f1217;
+  --bg3: #141820;
+  --bg4: #1a2030;
+  --border: #1e2535;
+  --border2: #252e42;
+  --green: #00d17a;
+  --green-dim: rgba(0,209,122,0.12);
+  --green-glow: rgba(0,209,122,0.25);
+  --red: #ff4757;
+  --red-dim: rgba(255,71,87,0.12);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.12);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.1);
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #4a5568;
+  --accent: #6366f1;
+  --accent-dim: rgba(99,102,241,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;font-size:13px;height:100%;overflow-x:hidden}
+
+/* LAYOUT */
+.shell{display:grid;grid-template-rows:auto auto auto 1fr auto;min-height:100vh}
+
+/* TOP NAV */
+.topnav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:48px;gap:16px;position:sticky;top:0;z-index:100}
+.brand{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;letter-spacing:-0.5px;color:#fff;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand-badge{background:var(--accent);color:#fff;font-size:9px;padding:2px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-weight:400;letter-spacing:1px}
+.nav-divider{width:1px;height:20px;background:var(--border2)}
+.nav-tabs{display:flex;gap:2px}
+.ntab{font-family:'Manrope',sans-serif;font-size:11px;font-weight:500;color:var(--text2);background:transparent;border:none;padding:6px 12px;cursor:pointer;border-radius:4px;transition:.15s}
+.ntab:hover{color:var(--text);background:var(--bg3)}
+.ntab.active{color:#fff;background:var(--bg4)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.nav-right .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.nav-right .live-label{color:var(--green);font-size:10px;letter-spacing:.5px}
+.nav-right .session{color:var(--text3)}
+
+/* TICKER STRIP */
+.ticker-strip{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:32px;display:flex;align-items:center;gap:0;overflow:hidden}
+.ticker-scroll{display:flex;gap:0;animation:tickerMove 40s linear infinite;white-space:nowrap}
+.ticker-scroll:hover{animation-play-state:paused}
+@keyframes tickerMove{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.tick-item{display:flex;align-items:center;gap:6px;padding:0 18px;border-right:1px solid var(--border);height:32px;font-family:'DM Mono',monospace;font-size:11px}
+.tick-sym{color:var(--text2);font-weight:500}
+.tick-price{color:var(--text)}
+.tick-chg{font-size:10px}
+.tick-chg.up{color:var(--green)}
+.tick-chg.dn{color:var(--red)}
+
+/* INFO BAR */
+.info-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:grid;grid-template-columns:repeat(5,1fr);height:56px}
+.ib-item{padding:0 20px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--border)}
+.ib-item:last-child{border-right:none}
+.ib-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:3px}
+.ib-val{font-family:'DM Mono',monospace;font-size:12px;color:var(--text);font-weight:500}
+.ib-val .hl{color:var(--accent)}
+
+/* MAIN GRID */
+.main-layout{display:grid;grid-template-columns:230px 1fr 220px;gap:0;min-height:0}
+
+/* SIDEBAR LEFT */
+.sl{background:var(--bg2);border-right:1px solid var(--border);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.panel-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:10px}
+
+/* PIPELINE STEPS */
+.pipeline{display:flex;flex-direction:column;gap:0}
+.pipe-step{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
+.pipe-step:last-child{border-bottom:none}
+.pipe-num{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);min-width:18px;padding-top:1px;font-weight:500}
+.pipe-content{}
+.pipe-head{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px}
+.pipe-desc{font-size:10px;color:var(--text3);line-height:1.5}
+
+/* STOCK LIST */
+.stock-list{display:flex;flex-direction:column;gap:3px}
+.stock-btn{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid transparent;border-radius:6px;cursor:pointer;background:transparent;transition:.15s;width:100%;text-align:left}
+.stock-btn:hover{background:var(--bg3);border-color:var(--border)}
+.stock-btn.active{background:var(--bg4);border-color:var(--border2)}
+.sb-left{display:flex;flex-direction:column;gap:2px}
+.sb-sym{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--text)}
+.sb-name{font-size:9px;color:var(--text3)}
+.sb-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.sb-chg{font-family:'DM Mono',monospace;font-size:10px;font-weight:500}
+.sb-chg.up{color:var(--green)}
+.sb-chg.dn{color:var(--red)}
+.sb-price{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2)}
+
+/* CENTER */
+.center{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
+
+/* CHART CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px}
+.card-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)}
+.legend-row{display:flex;gap:16px;margin-bottom:12px}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.leg-dot{width:20px;height:2px;border-radius:2px}
+.leg-dot.dashed{background:repeating-linear-gradient(90deg,var(--amber) 0,var(--amber) 4px,transparent 4px,transparent 8px)}
+.chart-container{position:relative;height:200px}
+.chart-container-sm{position:relative;height:130px}
+
+/* PIPELINE EXPLAINER */
+.pipeline-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0}
+.pipe-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px}
+.pc-step{font-size:9px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;font-family:'DM Mono',monospace}
+.pc-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;font-family:'Syne',sans-serif}
+.pc-desc{font-size:11px;color:var(--text3);line-height:1.6}
+
+/* PREDICTION TABLE */
+.pred-table{width:100%;border-collapse:collapse}
+.pred-table thead th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left}
+.pred-table tbody td{padding:9px 10px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
+.pred-table tbody tr:last-child td{border-bottom:none}
+.pred-table tbody tr:hover td{background:var(--bg3)}
+.tag-up{display:inline-flex;align-items:center;gap:3px;background:var(--green-dim);color:var(--green);padding:2px 8px;border-radius:3px;font-size:10px;font-family:'DM Mono',monospace;font-weight:500}
+.tag-dn{display:inline-flex;align-items:center;gap:3px;background:var(--red-dim);color:var(--red);padding:2px 8px;border-radius:3px;font-size:10px;font-family:'DM Mono',monospace;font-weight:500}
+
+/* COMPARISON TABLE */
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* SIDEBAR RIGHT */
+.sr{background:var(--bg2);border-left:1px solid var(--border);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+
+/* DIRECTION BOX */
+.dir-card{border:1px solid var(--border2);border-radius:8px;padding:20px;text-align:center;position:relative;overflow:hidden;transition:.3s}
+.dir-card.up-card{border-color:rgba(0,209,122,.35);background:linear-gradient(135deg,rgba(0,209,122,.05) 0%,var(--bg3) 100%)}
+.dir-card.dn-card{border-color:rgba(255,71,87,.35);background:linear-gradient(135deg,rgba(255,71,87,.05) 0%,var(--bg3) 100%)}
+.dir-icon{font-size:40px;line-height:1;margin-bottom:8px;filter:drop-shadow(0 0 12px currentColor)}
+.dir-icon.up{color:var(--green)}
+.dir-icon.dn{color:var(--red)}
+.dir-text{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px}
+.dir-conf{font-size:10px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace}
+
+/* OHLC MINI GRID */
+.ohlc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ohlc-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px}
+.ohlc-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--text);line-height:1}
+.ohlc-val.accent{color:var(--amber)}
+.ohlc-label{font-size:9px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+
+/* SENTIMENT */
+.sent-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px}
+.sent-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sent-score-wrap{display:flex;align-items:center;gap:8px}
+.sent-score{font-family:'DM Mono',monospace;font-size:28px;font-weight:500;line-height:1}
+.sent-score.pos{color:var(--green)}
+.sent-score.neg{color:var(--red)}
+.sent-score.neu{color:var(--amber)}
+.sent-label{font-size:10px;color:var(--text3);margin-top:3px}
+.sent-badge{font-size:10px;padding:3px 8px;border-radius:3px;font-family:'DM Mono',monospace;font-weight:500}
+.sent-badge.pos{background:var(--green-dim);color:var(--green)}
+.sent-badge.neg{background:var(--red-dim);color:var(--red)}
+.sent-badge.neu{background:var(--amber-dim);color:var(--amber)}
+.conf-bar-track{height:3px;background:var(--bg4);border-radius:2px;margin-top:8px}
+.conf-bar-fill{height:100%;border-radius:2px;transition:.4s}
+
+/* NEWS */
+.news-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px}
+.news-source{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:6px;font-family:'DM Mono',monospace}
+.news-text{font-size:11px;color:var(--text);line-height:1.6}
+
+/* ACCURACY BARS */
+.acc-list{display:flex;flex-direction:column;gap:8px}
+.acc-row{display:flex;align-items:center;gap:8px}
+.acc-name{font-size:10px;color:var(--text3);min-width:85px;font-weight:500}
+.acc-track{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.acc-fill{height:100%;border-radius:2px;background:var(--green);transition:.4s}
+.acc-fill.accent{background:var(--amber)}
+.acc-fill.blue{background:var(--blue)}
+.acc-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--text);min-width:36px;text-align:right}
+
+/* TECH STACK */
+.tech-list{display:flex;flex-direction:column;gap:4px}
+.tech-item{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text2)}
+.tech-item::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+
+/* BOTTOM GRID */
+.bottom-panel{background:var(--bg2);border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:0}
+.bp-col{padding:16px 20px;border-right:1px solid var(--border)}
+.bp-col:last-child{border-right:none}
+
+/* FEATURE BARS */
+.feat-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.feat-row{display:flex;align-items:center;gap:8px}
+.feat-name{font-size:10px;color:var(--text2);min-width:130px;font-weight:500}
+.feat-track{flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.feat-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),#818cf8);transition:.5s}
+.feat-fill.amber{background:linear-gradient(90deg,var(--amber),#fcd34d)}
+.feat-val{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);min-width:28px;text-align:right}
+
+/* SIGNAL GRID */
+.sig-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}
+.sig-card{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px;cursor:pointer;transition:.15s}
+.sig-card:hover{border-color:var(--border2);background:var(--bg4)}
+.sig-sym{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--text2)}
+.sig-chg{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;margin-top:3px}
+.sig-chg.up{color:var(--green)}
+.sig-chg.dn{color:var(--red)}
+.sig-bar{height:2px;border-radius:1px;margin-top:6px}
+.sig-bar.up{background:var(--green)}
+.sig-bar.dn{background:var(--red)}
+
+/* FOOTER */
+.footer{background:var(--bg2);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
+.footer-left{display:flex;align-items:center;gap:12px}
+.footer-dot{width:4px;height:4px;border-radius:50%;background:var(--text3)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* SENTIMENT EFFECT */
+.effect-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.eff-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center}
+.eff-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:5px}
+.eff-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--text)}
+
+/* MODEL COMPARE */
+.model-table{width:100%;border-collapse:collapse}
+.model-table thead th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;padding:5px 10px;border-bottom:1px solid var(--border);text-align:left}
+.model-table tbody td{padding:8px 10px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
+.model-table tbody tr.highlight td{color:var(--amber);background:var(--amber-dim)}
+.model-table tbody tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <div class="brand">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 14l4-5 3 3 3-4 4 6" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="5" r="2" fill="#00d17a"/></svg>
+    HybridAlpha
+    <span class="brand-badge">NSE</span>
+  </div>
+  <div class="nav-divider"></div>
+  <div class="nav-tabs">
+    <button class="ntab active">Live Predict</button>
+    <button class="ntab">Deep Learning</button>
+    <button class="ntab">FinBERT AI</button>
+    <button class="ntab">Model Stats</button>
+  </div>
+  <div class="nav-right">
+    <span class="live-dot"></span>
+    <span class="live-label">LIVE</span>
+    <span class="nav-divider"></span>
+    <span class="session" id="navTime">--:--:-- IST</span>
+  </div>
+</nav>
+
+<!-- TICKER STRIP -->
+<div class="ticker-strip">
+  <div class="ticker-scroll" id="tickerScroll"></div>
+</div>
+
+<!-- INFO BAR -->
+<div class="info-bar">
+  <div class="ib-item"><div class="ib-label">Active Stock</div><div class="ib-val" id="ibStock"><span class="hl">HDFCBANK</span>.NS</div></div>
+  <div class="ib-item"><div class="ib-label">Dataset</div><div class="ib-val">5-Year · <span class="hl">yFinance</span></div></div>
+  <div class="ib-item"><div class="ib-label">ML Pipeline</div><div class="ib-val">LSTM + <span class="hl">FinBERT</span></div></div>
+  <div class="ib-item"><div class="ib-label">Features</div><div class="ib-val">OHLCV + <span class="hl">Sentiment</span></div></div>
+  <div class="ib-item"><div class="ib-label">Exchange</div><div class="ib-val">NSE India · <span class="hl">INR ₹</span></div></div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- SIDEBAR LEFT -->
+  <aside class="sl">
+
+    <div>
+      <div class="panel-title">Pipeline</div>
+      <div class="pipeline">
+        <div class="pipe-step"><span class="pipe-num">01</span><div class="pipe-content"><div class="pipe-head">yFinance Data</div><div class="pipe-desc">5yr OHLCV + auto news fetch</div></div></div>
+        <div class="pipe-step"><span class="pipe-num">02</span><div class="pipe-content"><div class="pipe-head">FinBERT NLP</div><div class="pipe-desc">Headline sentiment scoring</div></div></div>
+        <div class="pipe-step"><span class="pipe-num">03</span><div class="pipe-content"><div class="pipe-head">MinMaxScaler</div><div class="pipe-desc">Normalise 5 feature columns</div></div></div>
+        <div class="pipe-step"><span class="pipe-num">04</span><div class="pipe-content"><div class="pipe-head">LSTM 60-Day</div><div class="pipe-desc">Rolling window sequences</div></div></div>
+        <div class="pipe-step"><span class="pipe-num">05</span><div class="pipe-content"><div class="pipe-head">Inverse Transform</div><div class="pipe-desc">Dummy-column decode ₹</div></div></div>
+        <div class="pipe-step"><span class="pipe-num">06</span><div class="pipe-content"><div class="pipe-head">Hybrid Output</div><div class="pipe-desc">LSTM + FinBERT bias fusion</div></div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">Select Stock</div>
+      <div class="stock-list" id="stockList"></div>
+    </div>
+
+  </aside>
+
+  <!-- CENTER -->
+  <main class="center">
+
+    <!-- PIPELINE CARDS -->
+    <div class="pipeline-cards">
+      <div class="pipe-card">
+        <div class="pc-step">Step 01 · Data</div>
+        <div class="pc-title">Historical OHLCV</div>
+        <div class="pc-desc">5 years of NSE data via yFinance. Sentiment score appended as a 5th column alongside OHLC prices.</div>
+      </div>
+      <div class="pipe-card">
+        <div class="pc-step">Step 02 · Model</div>
+        <div class="pc-title">Two-Layer LSTM</div>
+        <div class="pc-desc">50 units per layer. Learns from 60-day rolling windows to predict tomorrow's full OHLC output.</div>
+      </div>
+      <div class="pipe-card">
+        <div class="pc-step">Step 03 · NLP</div>
+        <div class="pc-title">FinBERT Sentiment</div>
+        <div class="pc-desc">ProsusAI FinBERT classifies headlines as positive/negative/neutral. Score biases the LSTM close prediction.</div>
+      </div>
+    </div>
+
+    <!-- MAIN CHART -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Predicted vs Actual — 30 Day Price</div>
+        <div class="card-meta" id="chartStockLabel">HDFCBANK.NS</div>
+      </div>
+      <div class="legend-row">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Actual Close</div>
+        <div class="leg-item"><div class="leg-dot dashed"></div>Predicted Close</div>
+      </div>
+      <div class="chart-container"><canvas id="lineChart"></canvas></div>
+    </div>
+
+    <!-- OHLC CHART + ACCURACY -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">OHLC · Today vs Tomorrow</div>
+          <div class="card-meta" style="display:flex;gap:10px">
+            <span style="color:var(--green);font-size:10px">● Today</span>
+            <span style="color:var(--amber);font-size:10px">● Tomorrow</span>
+          </div>
+        </div>
+        <div class="chart-container-sm"><canvas id="barChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Model Accuracy</div>
+          <div class="card-meta" id="mAcc">—</div>
+        </div>
+        <div class="acc-list" id="accBars"></div>
+      </div>
+    </div>
+
+    <!-- PREDICTION TABLE -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">OHLC Prediction Table — Today vs Tomorrow (₹)</div>
+        <div class="card-meta">AI Signal per row</div>
+      </div>
+      <table class="pred-table" id="predTable">
+        <thead><tr><th>Price Type</th><th>Today (₹)</th><th>Predicted (₹)</th><th>Δ Change</th><th>Signal</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- SENTIMENT EFFECT + MODEL COMPARISON -->
+    <div class="comp-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Sentiment Effect on Price</div></div>
+        <div class="effect-grid">
+          <div class="eff-box"><div class="eff-label">LSTM Only</div><div class="eff-val" id="effNoSent">—</div></div>
+          <div class="eff-box"><div class="eff-label">+ FinBERT</div><div class="eff-val" style="color:var(--green)" id="effWithSent">—</div></div>
+          <div class="eff-box"><div class="eff-label">Δ Delta</div><div class="eff-val" id="effDelta">—</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.6">The LSTM alone uses <span style="color:var(--text)">price patterns</span>. Adding FinBERT shifts the close prediction by the news bias score for a more accurate hybrid output.</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Model Comparison</div></div>
+        <table class="model-table">
+          <thead><tr><th>Approach</th><th>MAE ₹</th><th>Accuracy</th></tr></thead>
+          <tbody>
+            <tr><td>LSTM Only</td><td id="mae1" style="color:var(--red)">—</td><td id="a1">—</td></tr>
+            <tr><td>FinBERT Only</td><td id="mae2" style="color:var(--red)">—</td><td id="a2">—</td></tr>
+            <tr class="highlight"><td>Hybrid (LSTM + FinBERT)</td><td id="mae3">—</td><td id="a3">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SIDEBAR RIGHT -->
+  <aside class="sr">
+
+    <div>
+      <div class="panel-title">Prediction Output</div>
+      <div class="dir-card up-card" id="dirCard">
+        <div class="dir-icon up" id="dirIcon">↑</div>
+        <div class="dir-text" id="dirText">Select a Stock</div>
+        <div class="dir-conf" id="dirConf">— select stock to predict —</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">Tomorrow's OHLC</div>
+      <div class="ohlc-grid">
+        <div class="ohlc-box"><div class="ohlc-val" id="mOpen">—</div><div class="ohlc-label">Open</div></div>
+        <div class="ohlc-box"><div class="ohlc-val" id="mHigh">—</div><div class="ohlc-label">High</div></div>
+        <div class="ohlc-box"><div class="ohlc-val" id="mLow">—</div><div class="ohlc-label">Low</div></div>
+        <div class="ohlc-box"><div class="ohlc-val accent" id="mClose">—</div><div class="ohlc-label">Close (Predicted)</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">FinBERT Sentiment</div>
+      <div class="sent-card">
+        <div class="sent-top">
+          <div class="sent-score-wrap">
+            <div class="sent-score pos" id="sentScore">+0</div>
+            <div>
+              <div class="sent-label" id="sentLbl">Neutral · 0%</div>
+            </div>
+          </div>
+          <span class="sent-badge pos" id="sentBadge">NEUTRAL</span>
+        </div>
+        <div class="conf-bar-track"><div class="conf-bar-fill" id="sentBar" style="width:0%;background:var(--green)"></div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">Latest Headline</div>
+      <div class="news-card">
+        <div class="news-source">Auto-fetched · yFinance API</div>
+        <div class="news-text" id="newsText">Select a stock to load the latest news headline from Yahoo Finance...</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">Model Performance</div>
+      <div class="acc-list">
+        <div class="acc-row"><span class="acc-name">Hybrid Acc.</span><div class="acc-track"><div class="acc-fill" id="mAccBar" style="width:0%"></div></div><span class="acc-val" id="mAccVal">—</span></div>
+        <div class="acc-row"><span class="acc-name">MAE Score</span><div class="acc-track"><div class="acc-fill blue" style="width:65%"></div></div><span class="acc-val" id="mMaeVal">—</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">Tech Stack</div>
+      <div class="tech-list">
+        <div class="tech-item">Python · TensorFlow</div>
+        <div class="tech-item">PyTorch · Transformers</div>
+        <div class="tech-item">yFinance · Pandas</div>
+        <div class="tech-item">FinBERT · HuggingFace</div>
+        <div class="tech-item">Plotly · Matplotlib</div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- BOTTOM PANEL -->
+<div class="bottom-panel">
+  <div class="bp-col">
+    <div class="panel-title">Feature Importance — Contribution %</div>
+    <div class="feat-list" id="featBars"></div>
+  </div>
+  <div class="bp-col">
+    <div class="panel-title">All 20 Stocks — Signal Overview</div>
+    <div class="sig-grid" id="signalGrid"></div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-left">
+    <span>Student Final Project 2025/2026</span>
+    <span class="footer-dot"></span>
+    <span>Hybrid Stock Prediction · NSE India</span>
+    <span class="footer-dot"></span>
+    <span>LSTM + FinBERT + yFinance</span>
+  </div>
+  <div>Python · TensorFlow · HuggingFace Transformers · Chart.js</div>
+</footer>
+
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const STOCKS=[
+  {sym:'RELIANCE',name:'Reliance Ind.',base:2940},
+  {sym:'TCS',name:'TCS',base:3810},
+  {sym:'HDFCBANK',name:'HDFC Bank',base:1680},
+  {sym:'INFY',name:'Infosys',base:1590},
+  {sym:'ICICIBANK',name:'ICICI Bank',base:1240},
+  {sym:'HINDUNILVR',name:'HUL',base:2430},
+  {sym:'BAJFINANCE',name:'Bajaj Finance',base:7120},
+  {sym:'WIPRO',name:'Wipro',base:490},
+  {sym:'AXISBANK',name:'Axis Bank',base:1180},
+  {sym:'MARUTI',name:'Maruti Suzuki',base:12800},
+  {sym:'TITAN',name:'Titan Co.',base:3420},
+  {sym:'SUNPHARMA',name:'Sun Pharma',base:1720},
+  {sym:'ONGC',name:'ONGC',base:268},
+  {sym:'NTPC',name:'NTPC',base:345},
+  {sym:'ADANIENT',name:'Adani Ent.',base:2350},
+  {sym:'TATAMOTORS',name:'Tata Motors',base:940},
+  {sym:'HCLTECH',name:'HCL Tech',base:1590},
+  {sym:'SBIN',name:'SBI',base:812},
+  {sym:'POWERGRID',name:'Power Grid',base:318},
+  {sym:'ULTRACEMCO',name:'UltraTech',base:11400}
+];
+const NEWS={
+  positive:['Reports strong Q4 earnings, beats analyst estimates significantly','Secures major government contract worth ₹5,000 crore','FIIs increase stake; upgrades guidance for FY26','Announces strategic expansion into new markets'],
+  negative:['Misses profit targets due to rising input costs in Q4','Faces regulatory scrutiny; compliance issues flagged','Margin pressure continues amid global demand slowdown'],
+  neutral:['Board meeting scheduled to review quarterly results','Routine plant maintenance completed as scheduled','Management reaffirms existing FY26 guidance']
+};
+const SENTS=['positive','negative','neutral'];
+function rnd(a,b){return a+Math.random()*(b-a)}
+function r2(v){return Math.round(v*100)/100}
+function fmt(v){return '₹'+v.toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:0})}
+
+let lineChart,barChart,activeIdx=2;
+
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
+function updateClock(){
+  const now=new Date();
+  const ist=new Date(now.getTime()+5.5*3600000);
+  document.getElementById('navTime').textContent=
+    ist.toISOString().substring(11,19)+' IST';
+}
+setInterval(updateClock,1000);updateClock();
+
+// ─── TICKER ──────────────────────────────────────────────────────────────────
+function buildTicker(){
+  const el=document.getElementById('tickerScroll');
+  let html='';
+  for(let rep=0;rep<2;rep++){
+    STOCKS.slice(0,12).forEach(s=>{
+      const up=Math.random()>0.45;
+      const v=r2(s.base*(1+rnd(-0.02,0.02)));
+      const chg=r2(rnd(0.1,2.8))*(up?1:-1);
+      html+=`<span class="tick-item">
+        <span class="tick-sym">${s.sym}</span>
+        <span class="tick-price">${fmt(v)}</span>
+        <span class="tick-chg ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>
+      </span>`;
+    });
+  }
+  el.innerHTML=html;
+}
+buildTicker();
+
+// ─── STOCK LIST ──────────────────────────────────────────────────────────────
+const stockChanges=STOCKS.map(s=>{
+  const up=Math.random()>0.42;
+  return{up,chg:r2(rnd(0.1,3.2))*(up?1:-1),price:r2(s.base*(1+rnd(-0.015,0.015)))};
+});
+
+function buildStockList(){
+  const el=document.getElementById('stockList');
+  el.innerHTML='';
+  STOCKS.forEach((s,i)=>{
+    const {up,chg,price}=stockChanges[i];
+    const btn=document.createElement('button');
+    btn.className='stock-btn'+(i===activeIdx?' active':'');
+    btn.innerHTML=`
+      <div class="sb-left"><div class="sb-sym">${s.sym}</div><div class="sb-name">${s.name}</div></div>
+      <div class="sb-right">
+        <div class="sb-chg ${up?'up':'dn'}">${up?'+':''}${chg.toFixed(2)}%</div>
+        <div class="sb-price">${fmt(price)}</div>
+      </div>`;
+    btn.onclick=()=>{activeIdx=i;buildStockList();renderStock(i);};
+    el.appendChild(btn);
+  });
+}
+
+// ─── SIGNAL GRID ─────────────────────────────────────────────────────────────
+function buildSignalGrid(){
+  const el=document.getElementById('signalGrid');
+  el.innerHTML='';
+  STOCKS.forEach((s,i)=>{
+    const {up,chg}=stockChanges[i];
+    const div=document.createElement('div');
+    div.className='sig-card';
+    div.innerHTML=`<div class="sig-sym">${s.sym}</div><div class="sig-chg ${up?'up':'dn'}">${up?'+':''}${chg.toFixed(1)}%</div><div class="sig-bar ${up?'up':'dn'}" style="width:${Math.min(100,Math.abs(chg)/3*100)}%"></div>`;
+    div.onclick=()=>{activeIdx=i;buildStockList();renderStock(i);};
+    el.appendChild(div);
+  });
+}
+
+// ─── FEATURE BARS ────────────────────────────────────────────────────────────
+function buildFeatBars(){
+  const el=document.getElementById('featBars');
+  const feats=[['Close Price (Lag)',38,false],['Volume',18,false],['FinBERT Score',16,true],['RSI Indicator',14,false],['MACD Signal',9,true],['Open-Close Diff',5,false]];
+  el.innerHTML='';
+  feats.forEach(([lbl,val,amber])=>{
+    el.innerHTML+=`<div class="feat-row">
+      <span class="feat-name">${lbl}</span>
+      <div class="feat-track"><div class="feat-fill${amber?' amber':''}" style="width:${val}%"></div></div>
+      <span class="feat-val">${val}%</span>
+    </div>`;
+  });
+}
+
+// ─── GEN DATA ────────────────────────────────────────────────────────────────
+function genData(idx){
+  const s=STOCKS[idx];
+  const sent=SENTS[Math.floor(Math.random()*3)];
+  const ss=sent==='positive'?1:sent==='negative'?-1:0;
+  const conf=r2(rnd(0.72,0.97));
+  const todayC=s.base*(1+rnd(-0.012,0.012));
+  const todayO=todayC*(1+rnd(-0.007,0.007));
+  const todayH=todayC*(1+rnd(0.004,0.018));
+  const todayL=todayC*(1-rnd(0.004,0.018));
+  const eff=rnd(0.004,0.02)*(ss>=0?1:-1)+ss*rnd(0.002,0.007);
+  const tmrC=todayC*(1+eff+rnd(-0.004,0.004));
+  const tmrO=tmrC*(1+rnd(-0.005,0.005));
+  const tmrH=tmrC*(1+rnd(0.005,0.02));
+  const tmrL=tmrC*(1-rnd(0.005,0.02));
+  const labels=[],actual=[],predicted=[];
+  let p=s.base*(1-rnd(0.03,0.07));
+  for(let i=25;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    if(d.getDay()===0||d.getDay()===6)continue;
+    labels.push(d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}));
+    p*=(1+rnd(-0.016,0.018));
+    actual.push(r2(p));
+    predicted.push(r2(p*(1+rnd(-0.007,0.007))));
+  }
+  actual[actual.length-1]=r2(todayC);
+  predicted[predicted.length-1]=r2(todayC*(1+rnd(-0.002,0.002)));
+  labels.push('TOMORROW');actual.push(null);predicted.push(r2(tmrC));
+  const chg=r2((tmrC-todayC)/todayC*100);
+  const newsArr=NEWS[sent];
+  const news=s.name+' — '+newsArr[Math.floor(Math.random()*newsArr.length)];
+  const mae=r2(rnd(0.018,0.04));
+  const acc=r2(rnd(90,96));
+  return{s,sent,ss,conf,news,todayO:r2(todayO),todayH:r2(todayH),todayL:r2(todayL),todayC:r2(todayC),tmrO:r2(tmrO),tmrH:r2(tmrH),tmrL:r2(tmrL),tmrC:r2(tmrC),chg,labels,actual,predicted,mae,acc};
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderStock(idx){
+  const d=genData(idx);
+  const isUp=d.chg>=0;
+
+  // Info bar
+  document.getElementById('ibStock').innerHTML=`<span class="hl">${d.s.sym}</span>.NS`;
+  document.getElementById('chartStockLabel').textContent=d.s.sym+'.NS';
+
+  // Direction card
+  const dc=document.getElementById('dirCard');
+  dc.className='dir-card '+(isUp?'up-card':'dn-card');
+  document.getElementById('dirIcon').textContent=isUp?'↑':'↓';
+  document.getElementById('dirIcon').className='dir-icon '+(isUp?'up':'dn');
+  document.getElementById('dirText').textContent=isUp?'BULLISH — BUY SIGNAL':'BEARISH — SELL SIGNAL';
+  document.getElementById('dirConf').textContent=(isUp?'+':'')+d.chg.toFixed(2)+'% expected · '+(d.conf*100).toFixed(0)+'% confidence';
+
+  // OHLC
+  document.getElementById('mOpen').textContent=fmt(d.tmrO);
+  document.getElementById('mHigh').textContent=fmt(d.tmrH);
+  document.getElementById('mLow').textContent=fmt(d.tmrL);
+  document.getElementById('mClose').textContent=fmt(d.tmrC);
+
+  // Sentiment
+  const se=document.getElementById('sentScore');
+  se.textContent=(d.ss>0?'+':'')+d.ss;
+  se.className='sent-score '+(d.ss>0?'pos':d.ss<0?'neg':'neu');
+  document.getElementById('sentLbl').textContent=d.sent.charAt(0).toUpperCase()+d.sent.slice(1)+' · '+(d.conf*100).toFixed(0)+'% conf';
+  const sb=document.getElementById('sentBadge');
+  sb.textContent=d.sent.toUpperCase();
+  sb.className='sent-badge '+(d.ss>0?'pos':d.ss<0?'neg':'neu');
+  const sfill=document.getElementById('sentBar');
+  sfill.style.width=(d.conf*100)+'%';
+  sfill.style.background=d.ss>0?'var(--green)':d.ss<0?'var(--red)':'var(--amber)';
+
+  // News
+  document.getElementById('newsText').textContent=d.news;
+
+  // Acc bars
+  document.getElementById('mAcc').textContent=d.acc.toFixed(1)+'% Training';
+  document.getElementById('mAccVal').textContent=d.acc.toFixed(1)+'%';
+  document.getElementById('mAccBar').style.width=d.acc+'%';
+  document.getElementById('mMaeVal').textContent='₹'+d.mae.toFixed(3);
+  const accDiv=document.getElementById('accBars');
+  accDiv.innerHTML='';
+  [['Training Acc',d.acc,100,''],['Validation Acc',r2(d.acc-3.2),100,'blue'],['Test Acc',r2(d.acc-5.1),100,''],['Hybrid Gain',r2(rnd(4,8)),20,'accent']].forEach(([lbl,val,mx,cls])=>{
+    const pct=Math.min(100,(val/mx)*100);
+    accDiv.innerHTML+=`<div class="acc-row"><span class="acc-name">${lbl}</span><div class="acc-track"><div class="acc-fill${cls?' '+cls:''}" style="width:${pct}%"></div></div><span class="acc-val">${val.toFixed(1)}%</span></div>`;
+  });
+
+  // Pred table
+  const tb=document.querySelector('#predTable tbody');
+  tb.innerHTML='';
+  [['Open',d.todayO,d.tmrO],['High',d.todayH,d.tmrH],['Low',d.todayL,d.tmrL],['Close',d.todayC,d.tmrC]].forEach(([lbl,t,m])=>{
+    const pct=((m-t)/t*100).toFixed(2);
+    const up2=parseFloat(pct)>=0;
+    tb.innerHTML+=`<tr><td style="color:var(--text);font-weight:500">${lbl}</td><td>${fmt(t)}</td><td style="color:var(--text)">${fmt(m)}</td><td><span style="font-family:'DM Mono',monospace;font-size:12px;color:${up2?'var(--green)':'var(--red)'}">${up2?'+':''}${pct}%</span></td><td><span class="${up2?'tag-up':'tag-dn'}">${up2?'↑ BUY':'↓ SELL'}</span></td></tr>`;
+  });
+
+  // Sentiment effect
+  const noSentClose=r2(d.todayC*(1+(d.chg/100)*0.55));
+  document.getElementById('effNoSent').textContent=fmt(noSentClose);
+  document.getElementById('effWithSent').textContent=fmt(d.tmrC);
+  const delta=r2(d.tmrC-noSentClose);
+  const dEl=document.getElementById('effDelta');
+  dEl.textContent=(delta>=0?'+':'')+fmt(delta);
+  dEl.style.color=delta>=0?'var(--green)':'var(--red)';
+
+  // Model comparison
+  const mae1=r2(d.mae*1.45),mae2=r2(d.mae*1.7),mae3=d.mae;
+  document.getElementById('mae1').textContent='₹'+mae1.toFixed(3);
+  document.getElementById('mae2').textContent='₹'+mae2.toFixed(3);
+  document.getElementById('mae3').textContent='₹'+mae3.toFixed(3);
+  document.getElementById('a1').textContent=(d.acc-5.2).toFixed(1)+'%';
+  document.getElementById('a2').textContent=(d.acc-7.8).toFixed(1)+'%';
+  document.getElementById('a3').textContent=d.acc.toFixed(1)+'%';
+
+  // Charts
+  if(lineChart)lineChart.destroy();
+  if(barChart)barChart.destroy();
+
+  const chartDefaults={
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{
+      backgroundColor:'rgba(15,18,23,0.95)',
+      titleColor:'#94a3b8',bodyColor:'#e2e8f0',
+      borderColor:'#252e42',borderWidth:1,
+      padding:10,cornerRadius:6,
+      callbacks:{label:c=>'  ₹'+c.parsed.y?.toLocaleString('en-IN')}
+    }},
+    scales:{
+      x:{ticks:{color:'#4a5568',font:{size:10,family:"'DM Mono'"},maxRotation:40,autoSkip:true},grid:{color:'rgba(30,37,53,0.8)',drawBorder:false}},
+      y:{ticks:{color:'#4a5568',font:{size:10,family:"'DM Mono'"},callback:v=>'₹'+Math.round(v).toLocaleString('en-IN')},grid:{color:'rgba(30,37,53,0.8)',drawBorder:false}}
+    }
+  };
+
+  lineChart=new Chart(document.getElementById('lineChart').getContext('2d'),{
+    type:'line',
+    data:{labels:d.labels,datasets:[
+      {label:'Actual',data:d.actual,borderColor:'#00d17a',backgroundColor:'rgba(0,209,122,0.06)',borderWidth:2,pointRadius:0,fill:true,tension:0.4,spanGaps:false},
+      {label:'Predicted',data:d.predicted,borderColor:'#f59e0b',borderDash:[5,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0.4}
+    ]},
+    options:chartDefaults
+  });
+
+  barChart=new Chart(document.getElementById('barChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:['Open','High','Low','Close'],datasets:[
+      {label:'Today',data:[d.todayO,d.todayH,d.todayL,d.todayC],backgroundColor:'rgba(0,209,122,0.2)',borderColor:'#00d17a',borderWidth:1.5,borderRadius:3},
+      {label:'Tomorrow',data:[d.tmrO,d.tmrH,d.tmrL,d.tmrC],backgroundColor:'rgba(245,158,11,0.2)',borderColor:'#f59e0b',borderWidth:1.5,borderRadius:3}
+    ]},
+    options:{...chartDefaults,scales:{...chartDefaults.scales,x:{...chartDefaults.scales.x,grid:{display:false}}}}
+  });
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+buildStockList();
+buildSignalGrid();
+buildFeatBars();
+renderStock(activeIdx);
+</script>
+</body>
+</html>
